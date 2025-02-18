@@ -1,2 +1,2 @@
 # AnimationTools
-animation sequence clipper for UE5.5
+UE5.5下的动画序列分割工具，可以将一整个动画序列按帧分割成多个，目前只进行了关键帧的复制，曲线、通知等都还没处理
