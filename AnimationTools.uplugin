@@ -10,12 +10,15 @@
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "",
-	"EngineVersion": "5.5.0",
 	"CanContainContent": true,
-	"Installed": true,
-	"SupportedTargetPlatforms": [
-		"Win64"
-	],
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"bIsExperimental": false,
+	"bExplicitlyLoaded": false,
+	"SupportedTargetPlatforms": [ "Win64" ],
+	"EnabledByDefault": true,
+	"bCanBeUsedWithUnrealHeaderTool": true,
 	"Modules": [
 		{
 			"Name": "AnimationTools",
@@ -26,8 +29,17 @@
 	"LocalizationTargets": [
 		{
 			"Name": "AnimationTools",
-			"LoadingPolicy": "Always",
-			"ConfigGenerationPolicy": "Never"
+			"LoadingPolicy": "Always"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "EditorScriptingUtilities",
+			"Enabled": true
+		},
+		{
+			"Name": "Niagara",
+			"Enabled": true
 		}
 	]
 }

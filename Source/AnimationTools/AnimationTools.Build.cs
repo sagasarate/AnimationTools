@@ -25,21 +25,32 @@ public class AnimationTools : ModuleRules
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-                "Core",
-                "CoreUObject",
-                "Engine",
-                "Slate",
-                "SlateCore",
-                "InputCore",
-                "EditorFramework",
-                "UnrealEd",
-                "AssetTools",
-                "ContentBrowser",
-                "AssetRegistry",
-                "EditorStyle",
-                "DesktopPlatform",
-                "MovieScene",
-                "ApplicationCore",
+				"Core",
+				"CoreUObject",
+				"Engine",
+				"Slate",
+				"SlateCore",
+				"InputCore",
+				"EditorFramework",
+				"UnrealEd",
+				"AssetTools",
+				"ContentBrowser",
+				"AssetRegistry",
+				"EditorStyle",
+				"DesktopPlatform",
+				"MovieScene",
+				"ApplicationCore",
+				"ToolMenus",
+				"EditorScriptingUtilities",
+				"Json",
+				"JsonUtilities",
+				"Niagara",
+				"NiagaraCore",
+				"NiagaraEditor",
+				"NiagaraShader",
+				"Sequencer",
+				"MaterialEditor",
+				"RenderCore",				
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -52,6 +63,9 @@ public class AnimationTools : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"UMGEditor",
+				"UMG",
+				"Blutility",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

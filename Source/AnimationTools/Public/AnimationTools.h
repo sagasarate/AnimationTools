@@ -13,7 +13,15 @@ public:
 	virtual void ShutdownModule() override;
 
 	TSharedRef<FExtender> OnExtendAssetContextMenu(const TArray<FAssetData>& SelectedAssets);
+	TSharedRef<FExtender> OnExtendFolderContentMenu(const TArray<FString>& SelectedPaths);
+	TSharedRef<FExtender> OnExtendContentMenu(const TArray<FString>& SelectedPaths);
 	void ExecuteSplitAnimation(const TArray<FAssetData>& SelectedAssets);
+	void OnShowMeshBrowser(TArray<FString> SelectedPaths);
+protected:
+	void OnImportFBXClicked();
+	void OnImportUnityParticlesClicked();
+	void OnBrowseSlateIconClicked();
+	void OnModelToIconClicked();
 };
 
 DECLARE_LOG_CATEGORY_EXTERN(AnimationTools, Log, All)

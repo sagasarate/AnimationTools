@@ -1,4 +1,4 @@
-#include "AnimationSplitWindow.h"
+ï»¿#include "AnimationSplitWindow.h"
 #include "AnimationTools.h"
 
 #include "Widgets/Input/SButton.h"
@@ -31,7 +31,7 @@ void SAnimationSplitWindow::Construct(const FArguments& InArgs)
 	FVector2D ButtonSize = CalculateButtonSize("Icons.Delete", "HoverHintOnly", FMargin(0));
 
 	SWindow::Construct(SWindow::FArguments()
-		.Title(LOCTEXT("WindowTitle", "Animation Splitter"))
+		.Title(LOCTEXT("AnimSplitTitle", "Animation Splitter"))
 		.ClientSize(FVector2D(800, 500))
 		.SizingRule(ESizingRule::UserSized)
 		.AutoCenter(EAutoCenter::PreferredWorkArea)
@@ -184,15 +184,15 @@ void SAnimationSplitWindow::OpenWindow(UAnimSequence* Anim)
 
 FVector2D SAnimationSplitWindow::CalculateButtonSize(FName IconName, FName ButtonStyleName, FMargin ExtraPadding)
 {
-	// »ñÈ¡Í¼±ê³ß´ç
+	// è·å–å›¾æ ‡å°ºå¯¸
 	const FSlateBrush* IconBrush = FAppStyle::Get().GetBrush(IconName);
 	FVector2D IconSize = IconBrush ? IconBrush->ImageSize : FVector2D(16, 16);
 
-	// »ñÈ¡ÑùÊ½ÄÚ±ß¾à
+	// è·å–æ ·å¼å†…è¾¹è·
 	const FButtonStyle& ButtonStyle = FAppStyle::Get().GetWidgetStyle<FButtonStyle>(ButtonStyleName);
 	FMargin StylePadding = ButtonStyle.Hovered.GetMargin();
 
-	// ¼ÆËã×Ü³ß´ç
+	// è®¡ç®—æ€»å°ºå¯¸
 	return FVector2D(
 		IconSize.X + IconSize.X * StylePadding.Left + IconSize.X * StylePadding.Right + ExtraPadding.Left + ExtraPadding.Right,
 		IconSize.Y + IconSize.Y * StylePadding.Top + IconSize.Y * StylePadding.Bottom + ExtraPadding.Top + ExtraPadding.Bottom
@@ -207,7 +207,7 @@ void SAnimationSplitWindow::AddEntry(const FString& Name, int32 StartFrame, int3
 	NewEntry->StartFrame = StartFrame;
 	NewEntry->EndFrame = EndFrame;
 
-	// ´´½¨É¾³ı°´Å¥
+	// åˆ›å»ºåˆ é™¤æŒ‰é’®
 	NewEntry->DeleteButton = SNew(SButton)
 		.ButtonStyle(FAppStyle::Get(), "HoverHintOnly")
 		.ToolTipText(LOCTEXT("DeleteEntryTooltip", "Delete this entry"))
@@ -217,9 +217,9 @@ void SAnimationSplitWindow::AddEntry(const FString& Name, int32 StartFrame, int3
 			if (FMessageDialog::Open(EAppMsgType::YesNo,
 				LOCTEXT("DeleteConfirm", "Are you sure to delete this entry?")) == EAppReturnType::Yes)
 			{
-				// Ê¹ÓÃRemoveSwap±ÜÃâÆÆ»µµü´úÆ÷
+				// ä½¿ç”¨RemoveSwapé¿å…ç ´åè¿­ä»£å™¨
 				SplitEntries.RemoveSwap(NewEntry);
-				// Á¢¼´ÖØ½¨
+				// ç«‹å³é‡å»º
 				RebuildEntriesBox();
 			}
 		}
@@ -281,7 +281,7 @@ void SAnimationSplitWindow::RebuildEntriesBox()
 					]
 			];
 	}
-	// Ç¿ÖÆË¢ĞÂSlate²¼¾Ö
+	// å¼ºåˆ¶åˆ·æ–°Slateå¸ƒå±€
 	Invalidate(EInvalidateWidgetReason::Layout);
 }
 
@@ -393,7 +393,7 @@ FReply SAnimationSplitWindow::OnSaveDirClicked()
 
 	if (PathPickerWidget.IsValid())
 	{
-		// ÔÚĞÂ´°¿ÚÖĞÏÔÊ¾Â·¾¶Ñ¡ÔñÆ÷
+		// åœ¨æ–°çª—å£ä¸­æ˜¾ç¤ºè·¯å¾„é€‰æ‹©å™¨
 		TSharedPtr<SWindow> ParentWindow = SharedThis(this);
 		FSlateApplication::Get().AddModalWindow(SNew(SWindow)
 			.ClientSize(FVector2D(400, 400))
@@ -464,7 +464,7 @@ void SAnimationSplitWindow::ImportFromCSV()
 		const FString DefaultPath = FPaths::ProjectContentDir();
 		const FText FileTypes = LOCTEXT("OpenDialog.FileFilter", "All Files (*.*)|*.*|CSV Files (*.csv)|*.csv");
 
-		uint32 SelectionFlag = 0; // 0 = µ¥Ñ¡£¬1 = ¶àÑ¡
+		uint32 SelectionFlag = 0; // 0 = å•é€‰ï¼Œ1 = å¤šé€‰
 
 		DesktopPlatform->OpenFileDialog(
 			FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
@@ -479,7 +479,7 @@ void SAnimationSplitWindow::ImportFromCSV()
 		if (OutFiles.Num() > 0)
 		{
 			const FString SelectedFile = OutFiles[0];
-			// ´¦ÀíÑ¡ÔñµÄÎÄ¼ş
+			// å¤„ç†é€‰æ‹©çš„æ–‡ä»¶
 
 			FString FileContent;
 			if (FFileHelper::LoadFileToString(FileContent, *SelectedFile))
@@ -511,14 +511,14 @@ void SAnimationSplitWindow::ExportToCSV()
 			DefaultPath,
 			DefaultFile,
 			FileTypes.ToString(),
-			0, // ±£´æÑ¡Ïî£¨±£Áô²ÎÊı£©
+			0, // ä¿å­˜é€‰é¡¹ï¼ˆä¿ç•™å‚æ•°ï¼‰
 			OutFiles
 		);
 
 		if (OutFiles.Num() > 0)
 		{
 			const FString SavePath = OutFiles[0];
-			// ´¦Àí±£´æÂ·¾¶
+			// å¤„ç†ä¿å­˜è·¯å¾„
 
 			FStringBuilderBase StringBuilder;
 			StringBuilder.Append(TEXT("Name,StartFrame,EndFrame\n"));

@@ -11,7 +11,7 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
-
+	static void OpenWindow();
 private:
 	TArray<FName> IconNames;
 	TArray<TSharedPtr<FName> > FilteredIcons;

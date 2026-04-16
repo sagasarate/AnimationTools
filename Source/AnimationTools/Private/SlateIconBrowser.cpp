@@ -13,7 +13,7 @@
 void SSlateIconBrowser::Construct(const FArguments& InArgs)
 {
 	SWindow::Construct(SWindow::FArguments()
-		.Title(LOCTEXT("WindowTitle", "Slate Icon Browser"))
+		.Title(LOCTEXT("IconBrowserTitle", "Slate Icon Browser"))
 		.ClientSize(FVector2D(800, 600))
 		[
 			SNew(SVerticalBox)
@@ -54,6 +54,12 @@ void SSlateIconBrowser::Construct(const FArguments& InArgs)
 	}
 
 	RefreshIconList();
+}
+
+void SSlateIconBrowser::OpenWindow()
+{
+	TSharedRef<SSlateIconBrowser> Window = SNew(SSlateIconBrowser);
+	FSlateApplication::Get().AddWindow(Window);	
 }
 
 void SSlateIconBrowser::RefreshIconList(const FString& FilterText)
