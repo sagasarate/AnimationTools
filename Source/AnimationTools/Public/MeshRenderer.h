@@ -29,6 +29,7 @@ protected:
 	TSoftObjectPtr<UStaticMesh>			 m_SoftMeshPtr;
 	TSharedPtr<FStreamableHandle>		 m_CurrentLoadHandle;
 	int32								 m_OutSize = 128;
+	int32								 m_AAMultiplier = 4; // 超采样倍率，4x = 16倍像素数
 	float								 m_MeshRotation = 0.0f;
 	float								 m_ViewRotation = 45.0f;
 	float								 m_ViewAngle = 45.0f;

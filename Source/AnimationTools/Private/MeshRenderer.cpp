@@ -21,6 +21,50 @@
 #include "ShaderCompiler.h"
 #include "Engine/AssetManager.h"
 
+// Box Filter 降采样（2x → 目标尺寸）
+static void Downsample(FImage& Image, int32 Multiplier)
+{
+	const int32 SrcW = Image.SizeX;
+	const int32 SrcH = Image.SizeY;
+	const int32 DstW = SrcW / Multiplier;
+	const int32 DstH = SrcH / Multiplier;
+	const int32 Divisor = Multiplier * Multiplier;
+
+	TArray<FColor> DstPixels;
+	DstPixels.SetNumUninitialized(DstW * DstH);
+
+	for (int32 Y = 0; Y < DstH; ++Y)
+	{
+		for (int32 X = 0; X < DstW; ++X)
+		{
+			int32 SumR = 0, SumG = 0, SumB = 0, SumA = 0;
+
+			for (int32 DY = 0; DY < Multiplier; ++DY)
+			{
+				for (int32 DX = 0; DX < Multiplier; ++DX)
+				{
+					const FColor& SrcPixel = Image.AsBGRA8()[(Y * Multiplier + DY) * SrcW + (X * Multiplier + DX)];
+					SumR += SrcPixel.R;
+					SumG += SrcPixel.G;
+					SumB += SrcPixel.B;
+					SumA += SrcPixel.A;
+				}
+			}
+
+			FColor& DstPixel = DstPixels[Y * DstW + X];
+			DstPixel.R = static_cast<uint8>(SumR / Divisor);
+			DstPixel.G = static_cast<uint8>(SumG / Divisor);
+			DstPixel.B = static_cast<uint8>(SumB / Divisor);
+			DstPixel.A = static_cast<uint8>(SumA / Divisor);
+		}
+	}
+
+	Image.SizeX = DstW;
+	Image.SizeY = DstH;
+	Image.RawData.SetNumUninitialized(DstW * DstH * 4);
+	FMemory::Memcpy(Image.RawData.GetData(), DstPixels.GetData(), DstW * DstH * 4);
+}
+
 FMeshRenderer::FMeshRenderer()
 	: m_Preview(FPreviewScene::ConstructionValues().SetCreateDefaultLighting(true))
 {
@@ -68,12 +112,12 @@ FMeshRenderer::~FMeshRenderer()
 }
 
 bool FMeshRenderer::Render(const TSoftObjectPtr<UStaticMesh>& Mesh, int32 IconSize, float MeshRotationDeg, float ViewRotationDeg, float ViewAngleDeg, float FOVDeg)
-{	
+{
 	m_SoftMeshPtr = Mesh;
 	UE_LOG(LogTemp, Log, TEXT("Start Render for mesh: %s"), *m_SoftMeshPtr.ToString());
 	m_RenderState = ERenderState::MeshLoading;
 	m_OutSize = IconSize;
-    m_MeshRotation = MeshRotationDeg;
+	m_MeshRotation = MeshRotationDeg;
 	m_ViewRotation = ViewRotationDeg;
 	m_ViewAngle = ViewAngleDeg;
 	m_FOV = FOVDeg;
@@ -82,7 +126,7 @@ bool FMeshRenderer::Render(const TSoftObjectPtr<UStaticMesh>& Mesh, int32 IconSi
 	m_RenderTarget->ClearColor = FLinearColor::Transparent;
 	m_RenderTarget->bForceLinearGamma = false; // 确保使用 sRGB 转换
 	m_RenderTarget->TargetGamma = 2.2f;		   // 显式指定 Gamma 值
-	m_RenderTarget->InitAutoFormat(m_OutSize, m_OutSize);
+	m_RenderTarget->InitAutoFormat(m_OutSize * m_AAMultiplier, m_OutSize * m_AAMultiplier);
 	m_RenderTarget->bAutoGenerateMips = false;
 	m_RenderTarget->UpdateResourceImmediate(true);
 	m_CaptureComponent->TextureTarget = m_RenderTarget;
@@ -108,7 +152,7 @@ FMeshRenderer::ERenderState FMeshRenderer::TickRender(float InDeltaTime)
 		case ERenderState::Rendering:
 			CheckRenderCompleted();
 			break;
-		case ERenderState::RenderWaiting:			
+		case ERenderState::RenderWaiting:
 			if (m_RenderTickCount >= RenderWaitTicks)
 			{
 				DoRenderCapture();
@@ -128,7 +172,7 @@ void FMeshRenderer::DoRender(UStaticMesh* Mesh)
 	}
 
 	m_MeshComponent->SetStaticMesh(Mesh);
-    m_MeshComponent->SetRelativeRotation(FRotator(0.f, m_MeshRotation, 0.f));
+	m_MeshComponent->SetRelativeRotation(FRotator(0.f, m_MeshRotation, 0.f));
 	m_MeshComponent->UpdateComponentToWorld();
 	m_MeshComponent->UpdateBounds();
 
@@ -261,6 +305,10 @@ void FMeshRenderer::DoRenderCapture()
 		m_RenderState = ERenderState::Error;
 		return;
 	}
+
+	// 纯超采样抗锯齿：Box Filter降采样
+	Downsample(m_OutputImage, m_AAMultiplier);
+
 	m_RenderState = ERenderState::Completed;
 }
 
