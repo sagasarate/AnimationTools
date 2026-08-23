@@ -18,7 +18,7 @@ public:
 	};
 
 protected:
-	const int32							 RenderWaitTicks = 10;
+	const int32							 RenderWaitTicks = 1;
 	ERenderState						 m_RenderState = ERenderState::None;
 	int32								 m_RenderTickCount = 0;
 	FPreviewScene						 m_Preview;

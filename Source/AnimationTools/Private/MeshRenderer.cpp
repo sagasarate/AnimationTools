@@ -153,10 +153,7 @@ FMeshRenderer::ERenderState FMeshRenderer::TickRender(float InDeltaTime)
 			CheckRenderCompleted();
 			break;
 		case ERenderState::RenderWaiting:
-			if (m_RenderTickCount >= RenderWaitTicks)
-			{
-				DoRenderCapture();
-			}
+			DoRenderCapture();
 			break;
 	}
 	return m_RenderState;
@@ -244,7 +241,6 @@ void FMeshRenderer::DoRender(UStaticMesh* Mesh)
 		if (UTexture2D* Tex2D = Cast<UTexture2D>(Tex))
 		{
 			Tex2D->SetForceMipLevelsToBeResident(30.0f);
-			Tex2D->UpdateResource();
 		}
 	}
 	IStreamingManager::Get().NotifyPrimitiveUpdated(m_MeshComponent);
@@ -260,7 +256,8 @@ void FMeshRenderer::CheckRenderCompleted()
 		{
 			if (Tex2D->IsStreamable())
 			{
-				Tex2D->WaitForPendingInitOrStreaming();
+				if (!Tex2D->IsFullyStreamedIn())
+					return;
 			}
 		}
 	}
@@ -268,7 +265,6 @@ void FMeshRenderer::CheckRenderCompleted()
 	{
 		return; // 继续等待，Shader 还没好
 	}
-	FlushRenderingCommands();
 
 	m_RenderState = ERenderState::RenderWaiting;
 	m_RenderTickCount = 0;
@@ -293,6 +289,7 @@ void FMeshRenderer::OnMeshLoaded(TSoftObjectPtr<UStaticMesh> InSoftMesh)
 
 void FMeshRenderer::DoRenderCapture()
 {
+	FlushRenderingCommands();
 	UE_LOG(LogTemp, Log, TEXT("DoRenderCapture for mesh: %s"), *m_SoftMeshPtr.ToString());
 	m_CaptureComponent->CaptureScene();
 	if (!FImageUtils::GetRenderTargetImage(m_RenderTarget, m_OutputImage))
