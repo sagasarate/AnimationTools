@@ -22,6 +22,7 @@ protected:
 	void OnImportUnityParticlesClicked();
 	void OnBrowseSlateIconClicked();
 	void OnModelToIconClicked();
+	void OnMeshLODSettingClicked();
 };
 
 DECLARE_LOG_CATEGORY_EXTERN(AnimationTools, Log, All)

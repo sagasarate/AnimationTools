@@ -14,6 +14,7 @@
 #include "SlateIconBrowser.h"
 #include "ModelToIcon.h"
 #include "ModelToIconWidget.h"
+#include "MeshLODSetting.h"
 
 DEFINE_LOG_CATEGORY(AnimationTools);
 
@@ -80,6 +81,14 @@ void FAnimationToolsModule::StartupModule()
 		LOCTEXT("ModelToIconLabel", "Model To Icon"),
 		LOCTEXT("ModelToIconLabel", "Convert Model to Icon"),
 		FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.Settings")
+	));
+
+	Section.AddEntry(FToolMenuEntry::InitToolBarButton(
+		"MeshLODSettingButton",
+		FUIAction(FExecuteAction::CreateRaw(this, &FAnimationToolsModule::OnMeshLODSettingClicked)),
+		LOCTEXT("MeshLODSettingLabel", "Mesh LOD Setting"),
+		LOCTEXT("MeshLODSettingLabel", "Configure Mesh LOD Settings"),
+		FSlateIcon(FAppStyle::GetAppStyleSetName(), "Icons.LOD")
 	));
 
 	UToolMenus::Get()->RefreshAllWidgets();
@@ -260,6 +269,11 @@ void FAnimationToolsModule::OnModelToIconClicked()
 {
 	SModelToIcon::OpenWindow();
 	// UModelToIconWidget::OpenAsWindow();
+}
+
+void FAnimationToolsModule::OnMeshLODSettingClicked()
+{
+	SMeshLODSetting::OpenWindow();
 }
 
 #undef LOCTEXT_NAMESPACE
