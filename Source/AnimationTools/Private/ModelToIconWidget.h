@@ -24,8 +24,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bExport = true;
 
-	TSharedPtr<FImage>			ImageData;
-	TSoftObjectPtr<UStaticMesh> SoftMesh;
+	TSharedPtr<FImage> ImageData;
+	// 静态/骨骼网格体通用，渲染时按实际类型分流
+	TSoftObjectPtr<UObject> SoftMesh;
 
 	UModelToIconPreviewData()
 	{
@@ -39,9 +40,9 @@ class ANIMATIONTOOLS_API UModelToIconWidget : public UEditorUtilityWidget
 protected:
 	struct RenderTaskInfo
 	{
-		TSoftObjectPtr<UStaticMesh> SoftMeshPtr;
-		UModelToIconPreviewData*	ItemData;
-		RenderTaskInfo(const TSoftObjectPtr<UStaticMesh>& InSoftMeshPtr, UModelToIconPreviewData* InItemData)
+		TSoftObjectPtr<UObject>	 SoftMeshPtr;
+		UModelToIconPreviewData* ItemData;
+		RenderTaskInfo(const TSoftObjectPtr<UObject>& InSoftMeshPtr, UModelToIconPreviewData* InItemData)
 			: SoftMeshPtr(InSoftMeshPtr), ItemData(InItemData)
 		{
 		}

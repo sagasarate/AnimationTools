@@ -9,6 +9,9 @@
 #include "Misc/PackageName.h"
 #include "Engine/StaticMesh.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Materials/MaterialInstance.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "ImageUtils.h"
 #include "Modules/ModuleManager.h"
@@ -79,12 +82,21 @@ FMeshRenderer::FMeshRenderer()
 		m_Preview.SkyLight->MarkRenderStateDirty();
 	}
 
-	m_MeshComponent = NewObject<UStaticMeshComponent>();
+	m_MeshComponent = NewObject<UStaticMeshComponent>(GetTransientPackage());
 	m_MeshComponent->SetMobility(EComponentMobility::Movable);
 	m_MeshComponent->SetRenderCustomDepth(true);
 	m_MeshComponent->SetCustomDepthStencilValue(1);
 	m_MeshComponent->UpdateComponentToWorld();
 	m_Preview.AddComponent(m_MeshComponent, FTransform::Identity);
+
+	// 骨骼网格体组件：默认隐藏，渲染时按资产类型与静态组件互斥切换
+	m_SkeletalMeshComponent = NewObject<USkeletalMeshComponent>(GetTransientPackage());
+	m_SkeletalMeshComponent->SetMobility(EComponentMobility::Movable);
+	m_SkeletalMeshComponent->SetRenderCustomDepth(true);
+	m_SkeletalMeshComponent->SetCustomDepthStencilValue(1);
+	m_SkeletalMeshComponent->SetVisibility(false);
+	m_SkeletalMeshComponent->UpdateComponentToWorld();
+	m_Preview.AddComponent(m_SkeletalMeshComponent, FTransform::Identity);
 
 	UMaterial* StencilPP = LoadObject<UMaterial>(nullptr, TEXT("/AnimationTools/M_TransparentBack.M_TransparentBack"));
 	StencilPP->ForceRecompileForRendering();
@@ -111,7 +123,7 @@ FMeshRenderer::~FMeshRenderer()
 	}
 }
 
-bool FMeshRenderer::Render(const TSoftObjectPtr<UStaticMesh>& Mesh, int32 IconSize, float MeshRotationDeg, float ViewRotationDeg, float ViewAngleDeg, float FOVDeg)
+bool FMeshRenderer::Render(const TSoftObjectPtr<UObject>& Mesh, int32 IconSize, float MeshRotationDeg, float ViewRotationDeg, float ViewAngleDeg, float FOVDeg)
 {
 	m_SoftMeshPtr = Mesh;
 	UE_LOG(LogTemp, Log, TEXT("Start Render for mesh: %s"), *m_SoftMeshPtr.ToString());
@@ -159,24 +171,44 @@ FMeshRenderer::ERenderState FMeshRenderer::TickRender(float InDeltaTime)
 	return m_RenderState;
 }
 
-void FMeshRenderer::DoRender(UStaticMesh* Mesh)
+void FMeshRenderer::DoRender(UObject* LoadedMesh)
 {
 	UE_LOG(LogTemp, Log, TEXT("DoRender for mesh: %s"), *m_SoftMeshPtr.ToString());
-	if (!Mesh)
+	UStaticMesh*   StaticMesh = Cast<UStaticMesh>(LoadedMesh);
+	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(LoadedMesh);
+	if (!StaticMesh && !SkeletalMesh)
 	{
 		m_RenderState = ERenderState::Error;
 		return;
 	}
 
-	m_MeshComponent->SetStaticMesh(Mesh);
-	m_MeshComponent->SetRelativeRotation(FRotator(0.f, m_MeshRotation, 0.f));
-	m_MeshComponent->UpdateComponentToWorld();
-	m_MeshComponent->UpdateBounds();
+	// 按资产类型切换可见组件，另一组件隐藏（避免混入画面）
+	m_MeshComponent->SetVisibility(StaticMesh != nullptr);
+	m_SkeletalMeshComponent->SetVisibility(SkeletalMesh != nullptr);
+
+	UPrimitiveComponent* ActiveComp = nullptr;
+	if (StaticMesh)
+	{
+		m_MeshComponent->SetStaticMesh(StaticMesh);
+		m_MeshComponent->SetRelativeRotation(FRotator(0.f, m_MeshRotation, 0.f));
+		m_MeshComponent->UpdateComponentToWorld();
+		m_MeshComponent->UpdateBounds();
+		ActiveComp = m_MeshComponent;
+	}
+	else
+	{
+		// 无 AnimInstance 时骨骼组件渲染 ref pose，正好用于图标
+		m_SkeletalMeshComponent->SetSkeletalMesh(SkeletalMesh);
+		m_SkeletalMeshComponent->SetRelativeRotation(FRotator(0.f, m_MeshRotation, 0.f));
+		m_SkeletalMeshComponent->UpdateComponentToWorld();
+		m_SkeletalMeshComponent->UpdateBounds();
+		ActiveComp = m_SkeletalMeshComponent;
+	}
 
 	m_CaptureComponent->FOVAngle = m_FOV;
 
 	// Compute geometry: bounding sphere
-	FBoxSphereBounds Bounds = m_MeshComponent->Bounds;
+	FBoxSphereBounds Bounds = ActiveComp->Bounds;
 	FVector			 Center = Bounds.Origin;
 	float			 Radius = Bounds.SphereRadius;
 
@@ -225,17 +257,67 @@ void FMeshRenderer::DoRender(UStaticMesh* Mesh)
 	FRotator CamRot = (Target - CamLocation).Rotation();
 	m_CaptureComponent->SetWorldLocationAndRotation(CamLocation, CamRot);
 
+	// 记录当前对象供等待期间重收纹理，随后立即收集首轮清单
+	m_CurrentMeshObj = LoadedMesh;
+	RecollectUsedTextures();
+
+	// 通知流送器 primitive 已更新：必须对当前实际使用的组件调用，
+	// 否则骨骼路径上注册延迟会加剧（旧代码恒传静态组件）
+	IStreamingManager::Get().NotifyPrimitiveUpdated(ActiveComp);
+
+	m_RenderState = ERenderState::Rendering;
+	// 等待计数必须从“渲染准备完成”起算：MeshLoading 期间的残留计数会吃掉超时余量，
+	// 大模型（骨骼角色）加载慢，导致后面的任务刚进等待就“超时”放行
+	m_RenderTickCount = 0;
+}
+
+void FMeshRenderer::RecollectUsedTextures()
+{
 	m_UsedTextures.Empty();
-	for (const FStaticMaterial& StaticMat : Mesh->GetStaticMaterials())
-	{
-		if (StaticMat.MaterialInterface)
+	// 收集单个材质槽的纹理：对槽上材质本身求值（虚函数正确分发），
+	// 若为实例再沿父链补 TextureParameterValues（覆盖"共享父材质+实例参数"型资产）
+	auto CollectMaterialTextures = [this](UMaterialInterface* Mat) {
+		if (!Mat)
 		{
-			StaticMat.MaterialInterface->GetUsedTextures(
-				m_UsedTextures,
-				EMaterialQualityLevel::High);
+			return;
+		}
+		TArray<UTexture*> SlotTex;
+		Mat->GetUsedTextures(SlotTex, EMaterialQualityLevel::High);
+		for (UTexture* Tex : SlotTex)
+		{
+			m_UsedTextures.AddUnique(Tex);
+		}
+		const UMaterialInstance* MI = Cast<UMaterialInstance>(Mat);
+		while (MI)
+		{
+			for (const FTextureParameterValue& Param : MI->TextureParameterValues)
+			{
+				if (Param.ParameterValue)
+				{
+					m_UsedTextures.AddUnique(Param.ParameterValue);
+				}
+			}
+			MI = Cast<UMaterialInstance>(MI->Parent);
+		}
+	};
+	UStaticMesh*   StaticMesh = Cast<UStaticMesh>(m_CurrentMeshObj.Get());
+	USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(m_CurrentMeshObj.Get());
+	if (StaticMesh)
+	{
+		for (const FStaticMaterial& StaticMat : StaticMesh->GetStaticMaterials())
+		{
+			CollectMaterialTextures(StaticMat.MaterialInterface);
+		}
+	}
+	else if (SkeletalMesh)
+	{
+		for (const FSkeletalMaterial& SkeletalMat : SkeletalMesh->GetMaterials())
+		{
+			CollectMaterialTextures(SkeletalMat.MaterialInterface);
 		}
 	}
 
+	// force 驻留补打：幂等且便宜，覆盖晚就绪材质新贡献的贴图
 	for (UTexture* Tex : m_UsedTextures)
 	{
 		if (UTexture2D* Tex2D = Cast<UTexture2D>(Tex))
@@ -243,23 +325,49 @@ void FMeshRenderer::DoRender(UStaticMesh* Mesh)
 			Tex2D->SetForceMipLevelsToBeResident(30.0f);
 		}
 	}
-	IStreamingManager::Get().NotifyPrimitiveUpdated(m_MeshComponent);
-
-	m_RenderState = ERenderState::Rendering;
 }
 
 void FMeshRenderer::CheckRenderCompleted()
 {
+	// 材质的 expression 资源延迟构建：加载完成瞬间收集会残缺（冷启动时部分槽为空），
+	// 等待期间每帧重收，清单随资源就绪增长，漏收自愈；force 亦随新纹理补打
+	RecollectUsedTextures();
+
+	// IsStreamable() 语义是“流送系统已注册该纹理”（StreamingIndex != INDEX_NONE），并非“无需流送”。
+	// 骨骼组件的 proxy/纹理注册比静态慢，刚挂上网格体的头几帧纹理尚未注册，
+	// 若沿用“未注册即跳过”的旧判定，会在纹理未就绪时立即放行。
+	// 故将“未注册”也视为未就绪；真不可流送的纹理（如单 mip）用 MaxStreamWaitTicks 超时兜底。
+	bool bAllTexturesReady = true;
 	for (UTexture* Tex : m_UsedTextures)
 	{
 		if (UTexture2D* Tex2D = Cast<UTexture2D>(Tex))
 		{
 			if (Tex2D->IsStreamable())
 			{
+				// 已注册：流送系统在跟踪，等其完全驻留（force 标记保证有界）
 				if (!Tex2D->IsFullyStreamedIn())
-					return;
+				{
+					bAllTexturesReady = false;
+					break;
+				}
 			}
+			else if (m_RenderTickCount < UnregisteredGraceTicks)
+			{
+				// 未注册：先按“资源初始化中”等待宽限期
+				bAllTexturesReady = false;
+				break;
+			}
+			// 宽限期后仍未注册 → 永久不可流送的纹理（占位小图等），跳过，
+			// 避免为一张永远不会注册的图白等满超时上限
 		}
+	}
+	if (!bAllTexturesReady && m_RenderTickCount < MaxStreamWaitTicks)
+	{
+		return;
+	}
+	if (!bAllTexturesReady)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Texture stream wait timed out after %d ticks for mesh: %s (some parts may render gray)"), MaxStreamWaitTicks, *m_SoftMeshPtr.GetAssetName());
 	}
 	if (GShaderCompilingManager && GShaderCompilingManager->IsCompiling())
 	{
@@ -272,10 +380,10 @@ void FMeshRenderer::CheckRenderCompleted()
 	UE_LOG(LogTemp, Log, TEXT("Render Wait for mesh: %s"), *m_SoftMeshPtr.ToString());
 }
 
-void FMeshRenderer::OnMeshLoaded(TSoftObjectPtr<UStaticMesh> InSoftMesh)
+void FMeshRenderer::OnMeshLoaded(TSoftObjectPtr<UObject> InSoftMesh)
 {
 	UE_LOG(LogTemp, Log, TEXT("finish load for mesh: %s"), *m_SoftMeshPtr.ToString());
-	UStaticMesh* LoadedMesh = InSoftMesh.Get();
+	UObject* LoadedMesh = InSoftMesh.Get();
 	if (LoadedMesh)
 	{
 		DoRender(LoadedMesh);

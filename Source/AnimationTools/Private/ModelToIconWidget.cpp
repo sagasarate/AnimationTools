@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ModelToIconWidget.h"
+#include "Engine/SkeletalMesh.h"
 #include "Widgets/SWindow.h"
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
@@ -156,6 +157,7 @@ void UModelToIconWidget::OnGenerateIcons()
 	Filter.PackagePaths.Add(FName(*ModelPath));
 	// Use ClassPaths filter (preferred API)
 	Filter.ClassPaths.Add(UStaticMesh::StaticClass()->GetClassPathName());
+	Filter.ClassPaths.Add(USkeletalMesh::StaticClass()->GetClassPathName());
 
 	TArray<FAssetData> MeshAssets;
 	AssetRegistryModule.Get().GetAssets(Filter, MeshAssets);
@@ -163,10 +165,7 @@ void UModelToIconWidget::OnGenerateIcons()
 	{
 		for (auto Asset : MeshAssets)
 		{
-			if (Asset.AssetClassPath == UStaticMesh::StaticClass()->GetClassPathName())
-			{
-				RenderTaskList.Add(RenderTaskInfo(TSoftObjectPtr<UStaticMesh>(Asset.ToSoftObjectPath()), nullptr));
-			}
+			RenderTaskList.Add(RenderTaskInfo(TSoftObjectPtr<UObject>(Asset.ToSoftObjectPath()), nullptr));
 		}
 
 		TotalRenderProgress = RenderTaskList.Num();
