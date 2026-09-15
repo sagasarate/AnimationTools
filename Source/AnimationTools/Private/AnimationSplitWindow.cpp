@@ -520,7 +520,7 @@ void SAnimationSplitWindow::ExportToCSV()
 			const FString SavePath = OutFiles[0];
 			// 处理保存路径
 
-			FStringBuilderBase StringBuilder;
+			TStringBuilder<512> StringBuilder;
 			StringBuilder.Append(TEXT("Name,StartFrame,EndFrame\n"));
 			for (auto& Entry : SplitEntries)
 			{

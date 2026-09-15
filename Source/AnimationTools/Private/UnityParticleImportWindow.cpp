@@ -301,7 +301,8 @@ UNiagaraSystem *SUnityParticleImportWindow::CreateNiagaraSystem()
 	Package->FullyLoad();
 
 	// 2. 创建 Niagara System
-	UObject *NewAsset = SysytemFactory->FactoryCreateNew(UNiagaraSystem::StaticClass(), Package, *AssetName, RF_Standalone | RF_Public, nullptr, GWarn);
+	// UE5.8 将 UNiagaraSystemFactoryNew::FactoryCreateNew 的 override 收为 private，经基类指针调用以走公开虚函数分派
+	UObject *NewAsset = static_cast<UFactory *>(SysytemFactory)->FactoryCreateNew(UNiagaraSystem::StaticClass(), Package, *AssetName, RF_Standalone | RF_Public, nullptr, GWarn);
 	UNiagaraSystem *NiagaraSystem = Cast<UNiagaraSystem>(NewAsset);
 
 	if (!NiagaraSystem)
@@ -1838,33 +1839,6 @@ void SUnityParticleImportWindow::DumpScript(UNiagaraScript *Script, FString Spac
 		for (FString &Param : ParamList)
 		{
 			UE_LOG(AnimationTools, Error, TEXT("%sCookedParams:%s"), *ParamSpace, *Param);
-		}
-	}
-	{
-		auto DataInterfaces = Script->GetResolvedDataInterfaces();
-		FString ParamSpace = Space + TEXT("    ");
-		for (auto &DataInterface : DataInterfaces)
-		{
-			FString Value(TEXT("Unknow"));
-			uint32 InfoUniqueID = 0;
-			FString InfoClass;
-			if (DataInterface.ResolvedDataInterface)
-			{
-				InfoClass = DataInterface.ResolvedDataInterface->GetClass()->GetName();
-				InfoUniqueID = DataInterface.ResolvedDataInterface->GetUniqueID();
-			}
-			if (UNiagaraDataInterfaceSpriteRendererInfo *RendererInfo = Cast<UNiagaraDataInterfaceSpriteRendererInfo>(DataInterface.ResolvedDataInterface))
-			{
-				if (RendererInfo->GetSpriteRenderer())
-					Value = FString::Printf(TEXT("%s(%p)"), *RendererInfo->GetSpriteRenderer()->GetClass()->GetName(), RendererInfo->GetSpriteRenderer());
-				else
-					Value = TEXT("null");
-			}
-			else if (UNiagaraDataInterfaceColorCurve *CurveInfo = Cast<UNiagaraDataInterfaceColorCurve>(DataInterface.ResolvedDataInterface))
-			{
-				Value = FString::Printf(TEXT("R(%d)G(%d)B(%d)A(%d)"), CurveInfo->RedCurve.GetNumKeys(), CurveInfo->GreenCurve.GetNumKeys(), CurveInfo->BlueCurve.GetNumKeys(), CurveInfo->AlphaCurve.GetNumKeys());
-			}
-			UE_LOG(AnimationTools, Error, TEXT("%sResolvedDataInterface:%s(%s)=(%d)%s"), *ParamSpace, *DataInterface.Name.ToString(), *InfoClass, InfoUniqueID, *Value);
 		}
 	}
 	{
